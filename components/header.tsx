@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useAuth } from '@/lib/auth-context'
 import { Button } from '@/components/ui/button'
 import { useRouter } from 'next/navigation'
-import { ShoppingCart } from 'lucide-react'
+import { ShoppingCart, Loader2 } from 'lucide-react'
 import { CartSlideIn } from '@/components/cart-slidein'
 import {
   DropdownMenu,
@@ -17,7 +17,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 
 export function Header() {
-  const { user, isAuthenticated, logout } = useAuth()
+  const { user, isAuthenticated, logout, loading: authLoading } = useAuth()
   const router = useRouter()
   const [cartOpen, setCartOpen] = useState(false)
 
@@ -27,7 +27,7 @@ export function Header() {
   }
 
   const getRoleLinks = () => {
-    if (!user) return null
+    if (!user) return []
 
     const baseLinks: { href: string; label: string }[] = []
 
@@ -40,6 +40,27 @@ export function Header() {
     }
 
     return baseLinks
+  }
+
+  // Show loading state while auth is being checked
+  if (authLoading) {
+    return (
+      <header className="border-b sticky top-0 bg-white z-50 shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
+          <Link href="/" className="text-2xl font-bold flex items-center gap-2">
+            <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent font-bold">
+              PandaMart
+            </span>
+          </Link>
+          <div className="flex items-center gap-4">
+            <Button variant="outline" disabled>
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              Loading...
+            </Button>
+          </div>
+        </div>
+      </header>
+    )
   }
 
   return (

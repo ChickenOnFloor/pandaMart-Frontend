@@ -10,28 +10,30 @@ import { Package, CheckCircle, Clock, TrendingUp, ShoppingCart, DollarSign, Plus
 import { get } from '@/lib/api'
 import { useEffect, useState } from 'react'
 
-interface SellerStats {
+interface SellerDashboardData {
   totalProducts: number
   approvedProducts: number
   pendingProducts: number
+  totalOrders: number
+  totalSales: number
 }
 
 export default function SellerDashboard() {
-  const [stats, setStats] = useState<SellerStats | null>(null)
+  const [data, setData] = useState<SellerDashboardData | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const fetchStats = async () => {
+    const fetchDashboardData = async () => {
       try {
-        const data = await get<SellerStats>('/seller/stats')
-        setStats(data)
+        const dashboardData = await get<SellerDashboardData>('/seller/dashboard')
+        setData(dashboardData)
       } catch (err) {
-        console.error('Failed to fetch stats:', err)
+        console.error('Failed to fetch dashboard data:', err)
       } finally {
         setLoading(false)
       }
     }
-    fetchStats()
+    fetchDashboardData()
   }, [])
 
   return (
@@ -73,7 +75,7 @@ export default function SellerDashboard() {
               </Card>
             ))}
           </div>
-        ) : stats ? (
+        ) : data ? (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
             <Card className="hover:shadow-lg transition-all duration-300 border-l-4 border-l-blue-500">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -83,7 +85,7 @@ export default function SellerDashboard() {
                 <Package className="w-5 h-5 text-blue-500" />
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-bold text-blue-600">{stats.totalProducts}</div>
+                <div className="text-3xl font-bold text-blue-600">{data.totalProducts}</div>
                 <Badge variant="secondary" className="mt-2">All listings</Badge>
               </CardContent>
             </Card>
@@ -96,7 +98,7 @@ export default function SellerDashboard() {
                 <CheckCircle className="w-5 h-5 text-green-500" />
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-bold text-green-600">{stats.approvedProducts}</div>
+                <div className="text-3xl font-bold text-green-600">{data.approvedProducts}</div>
                 <Badge variant="secondary" className="mt-2">Live on store</Badge>
               </CardContent>
             </Card>
@@ -109,7 +111,7 @@ export default function SellerDashboard() {
                 <Clock className="w-5 h-5 text-yellow-500" />
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-bold text-yellow-600">{stats.pendingProducts}</div>
+                <div className="text-3xl font-bold text-yellow-600">{data.pendingProducts}</div>
                 <Badge variant="secondary" className="mt-2">Under review</Badge>
               </CardContent>
             </Card>
