@@ -1,8 +1,15 @@
 'use client'
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react'
+import {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  type ReactNode,
+} from 'react'
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'
+const API_BASE_URL: string =
+  process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000'
 
 export type UserRole = 'user' | 'seller' | 'admin'
 
@@ -25,108 +32,118 @@ interface AuthContextType {
   refreshAuthStatus: () => Promise<void>
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined)
+const AuthContext = createContext<AuthContextType | null>(null)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState<boolean>(true)
   const [error, setError] = useState<string | null>(null)
-  const [initialized, setInitialized] = useState(false)
+  const [initialized, setInitialized] = useState<boolean>(false)
 
-  // Check auth status on mount
+  // 🟢 Run after hydration (prevents false 401 on Vercel)
   useEffect(() => {
-    checkAuthStatus()
+    const timer = setTimeout(() => {
+      void checkAuthStatus()
+    }, 100)
+
+    return () => clearTimeout(timer)
   }, [])
 
-  const refreshAuthStatus = async () => {
+  const refreshAuthStatus = async (): Promise<void> => {
     await checkAuthStatus()
   }
 
-  const checkAuthStatus = async () => {
+  const checkAuthStatus = async (): Promise<void> => {
     try {
-      setLoading(true)
-      const response = await fetch(`${API_BASE_URL}/api/auth/me`, {
-        credentials: 'include',
-      })
-      
+      const response: Response = await fetch(
+        `${API_BASE_URL}/api/auth/me`,
+        { credentials: 'include' }
+      )
+
       if (response.ok) {
-        const userData = await response.json()
+        const userData: AuthUser = await response.json()
         setUser(userData)
-      } else {
-        // Only clear user if response is specifically unauthorized
-        if (response.status === 401) {
-          setUser(null)
-        }
+      } else if (response.status === 401) {
+        setUser(null)
       }
-    } catch (err) {
-      // Network error - backend not available, but don't log spam
-      // Keep existing user state if there's a network issue
-      console.log('Auth check failed due to network issue, keeping current state')
+    } catch {
+      // Cold start / network issue — do NOT clear user
+      console.info('Auth check skipped (network/cold start)')
     } finally {
       setInitialized(true)
       setLoading(false)
     }
   }
 
-  const login = async (email: string, password: string) => {
+  const login = async (email: string, password: string): Promise<void> => {
     try {
       setError(null)
       setLoading(true)
-      const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ email, password }),
-      })
+
+      const response: Response = await fetch(
+        `${API_BASE_URL}/api/auth/login`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ email, password }),
+        }
+      )
+
       if (!response.ok) {
-        throw new Error('Login failed')
+        throw new Error('Invalid credentials')
       }
-      const userData = await response.json()
+
+      const userData: AuthUser = await response.json()
       setUser(userData)
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Login failed'
-      setError(message)
+      setError(err instanceof Error ? err.message : 'Login failed')
       throw err
     } finally {
       setLoading(false)
     }
   }
 
-  const register = async (name: string, email: string, password: string) => {
+  const register = async (
+    name: string,
+    email: string,
+    password: string
+  ): Promise<void> => {
     try {
       setError(null)
       setLoading(true)
-      const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ name, email, password }),
-      })
+
+      const response: Response = await fetch(
+        `${API_BASE_URL}/api/auth/register`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ name, email, password }),
+        }
+      )
+
       if (!response.ok) {
         throw new Error('Registration failed')
       }
-      const userData = await response.json()
+
+      const userData: AuthUser = await response.json()
       setUser(userData)
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Registration failed'
-      setError(message)
+      setError(err instanceof Error ? err.message : 'Registration failed')
       throw err
     } finally {
       setLoading(false)
     }
   }
 
-  const logout = async () => {
+  const logout = async (): Promise<void> => {
     try {
-      setError(null)
       await fetch(`${API_BASE_URL}/api/auth/logout`, {
         method: 'POST',
         credentials: 'include',
       })
-      setUser(null)
-    } catch (err) {
-      console.error('Logout failed:', err)
-      // Still clear the user locally even if backend logout fails
+    } finally {
       setUser(null)
     }
   }
@@ -140,7 +157,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         login,
         register,
         logout,
-        isAuthenticated: !!user,
+        isAuthenticated: Boolean(user),
         initialized,
         refreshAuthStatus,
       }}
@@ -150,9 +167,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   )
 }
 
-export function useAuth() {
+export function useAuth(): AuthContextType {
   const context = useContext(AuthContext)
-  if (context === undefined) {
+  if (!context) {
     throw new Error('useAuth must be used within AuthProvider')
   }
   return context
