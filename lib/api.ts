@@ -1,4 +1,3 @@
-// API utilities with credentials for cookie-based auth
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'
 
 export async function apiCall<T>(
@@ -16,18 +15,15 @@ export async function apiCall<T>(
     })
 
     if (response.status === 401 || response.status === 403) {
-      // Auth failed - redirect to login handled by middleware
       throw new Error('Unauthorized')
     }
 
     if (!response.ok) {
-      // Try to parse JSON error response
       const contentType = response.headers.get('content-type')
       if (contentType?.includes('application/json')) {
         const error = await response.json()
         throw new Error(error.message || `API error: ${response.statusText}`)
       } else {
-        // Backend returned HTML (error page) or non-JSON response
         throw new Error(`API error: ${response.statusText}. Make sure backend server is running.`)
       }
     }

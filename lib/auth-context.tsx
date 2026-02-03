@@ -22,6 +22,7 @@ interface AuthContextType {
   logout: () => Promise<void>
   isAuthenticated: boolean
   initialized: boolean
+  refreshAuthStatus: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -36,6 +37,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     checkAuthStatus()
   }, [])
+
+  const refreshAuthStatus = async () => {
+    await checkAuthStatus()
+  }
 
   const checkAuthStatus = async () => {
     try {
@@ -137,6 +142,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         logout,
         isAuthenticated: !!user,
         initialized,
+        refreshAuthStatus,
       }}
     >
       {children}

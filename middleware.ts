@@ -21,6 +21,12 @@ export async function middleware(request: NextRequest) {
       loginUrl.searchParams.set('redirect', pathname)
       return NextResponse.redirect(loginUrl)
     }
+    
+    // For dashboard routes, we'll allow the request to proceed
+    // The frontend will handle detailed authentication checks
+    if (pathname.startsWith('/seller') || pathname.startsWith('/admin')) {
+      return NextResponse.next()
+    }
   }
 
   // Allow auth routes to be accessible (login/register pages)
