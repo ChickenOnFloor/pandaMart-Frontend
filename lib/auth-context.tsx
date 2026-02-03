@@ -67,7 +67,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(null)
       }
     } catch {
-      // Cold start / network issue — do NOT clear user
       console.info('Auth check skipped (network/cold start)')
     } finally {
       setInitialized(true)
