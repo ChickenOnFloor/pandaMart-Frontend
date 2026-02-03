@@ -117,7 +117,7 @@ export default function Home() {
         }
       }
 
-      const products = await get<Product[]>(`/public/products?${params.toString()}`)
+      const products = await get<Product[]>(`/products?${params.toString()}`)
       setProducts(products)
     } catch (err) {
       console.error('Failed to fetch products:', err)
