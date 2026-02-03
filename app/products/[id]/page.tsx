@@ -53,7 +53,7 @@ export default function ProductDetailPage({ params }: PageProps) {
     const fetchProduct = async () => {
       try {
         setLoading(true)
-        const productData = await get<Product>(`/products/${resolvedId}`)
+        const productData = await get<Product>(`/public/products/${resolvedId}`)
         setProduct(productData)
         
         // Animate on load

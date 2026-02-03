@@ -45,7 +45,7 @@ export default function SellerProductsPage({ params }: PageProps) {
       try {
         setLoading(true)
         // Fetch products from this seller
-        const productsData = await get<SellerProduct[]>(`/products?sellerId=${resolvedId}`)
+        const productsData = await get<SellerProduct[]>(`/public/products?sellerId=${resolvedId}`)
         setProducts(productsData)
         
         // Get seller name from first product
