@@ -1,5 +1,5 @@
 // API utilities with credentials for cookie-based auth
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'
 
 export async function apiCall<T>(
   endpoint: string,

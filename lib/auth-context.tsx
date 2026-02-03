@@ -21,6 +21,7 @@ interface AuthContextType {
   register: (name: string, email: string, password: string) => Promise<void>
   logout: () => Promise<void>
   isAuthenticated: boolean
+  initialized: boolean
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -29,6 +30,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [initialized, setInitialized] = useState(false)
 
   // Check auth status on mount
   useEffect(() => {
@@ -41,16 +43,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const response = await fetch(`${API_BASE_URL}/api/auth/me`, {
         credentials: 'include',
       })
+      
       if (response.ok) {
         const userData = await response.json()
         setUser(userData)
       } else {
-        setUser(null)
+        // Only clear user if response is specifically unauthorized
+        if (response.status === 401) {
+          setUser(null)
+        }
       }
     } catch (err) {
       // Network error - backend not available, but don't log spam
-      setUser(null)
+      // Keep existing user state if there's a network issue
+      console.log('Auth check failed due to network issue, keeping current state')
     } finally {
+      setInitialized(true)
       setLoading(false)
     }
   }
@@ -113,6 +121,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(null)
     } catch (err) {
       console.error('Logout failed:', err)
+      // Still clear the user locally even if backend logout fails
+      setUser(null)
     }
   }
 
@@ -126,6 +136,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         register,
         logout,
         isAuthenticated: !!user,
+        initialized,
       }}
     >
       {children}
