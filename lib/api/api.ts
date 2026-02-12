@@ -53,6 +53,10 @@ export const api = createApi({
       },
       providesTags: ['Product'],
     }),
+    getProductsBySeller: builder.query({
+      query: (sellerId) => `/public/products?sellerId=${sellerId}`,
+      providesTags: ['Product'],
+    }),
     getProductById: builder.query({
       query: (id) => `/public/products/${id}`, // Changed to public route
       providesTags: (result, error, id) => [{ type: 'Product', id }],
@@ -188,6 +192,7 @@ export const {
   // Products
   useGetProductsQuery,
   useGetProductByIdQuery,
+  useGetProductsBySellerQuery,
   
   // Cart
   useGetCartQuery,
