@@ -4,7 +4,8 @@ import { useState, useEffect, useRef } from 'react'
 import { Header } from '@/components/header'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { get, post } from '@/lib/api'
+import { useGetProductByIdQuery } from '@/lib/api/api'
+import { useAddToCartMutation } from '@/lib/api/api'
 import { useAuth } from '@/lib/auth-context'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
@@ -32,9 +33,7 @@ interface PageProps {
 }
 
 export default function ProductDetailPage({ params }: PageProps) {
-  const [product, setProduct] = useState<Product | null>(null)
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
   const [addingToCart, setAddingToCart] = useState(false)
   const [quantity, setQuantity] = useState(1)
   const { isAuthenticated } = useAuth()
@@ -42,57 +41,50 @@ export default function ProductDetailPage({ params }: PageProps) {
   const [resolvedId, setResolvedId] = useState<string | null>(null)
   const imageRef = useRef(null)
   const infoRef = useRef(null)
+  
+  // Use RTK Query hooks
+  const { data: product, isLoading, error: productError } = useGetProductByIdQuery(resolvedId || '', {
+    skip: !resolvedId,
+  });
+  const [addToCart] = useAddToCartMutation();
 
   useEffect(() => {
     params.then(p => setResolvedId(p.id))
   }, [params])
 
   useEffect(() => {
-    if (!resolvedId) return
-
-    const fetchProduct = async () => {
-      try {
-        setLoading(true)
-        const productData = await get<Product>(`/products/${resolvedId}`)
-        setProduct(productData)
-        
-        // Animate on load
-        gsap.fromTo(imageRef.current,
-          {
-            opacity: 0,
-            x: -50,
-          },
-          {
-            opacity: 1,
-            x: 0,
-            duration: 0.8,
-            ease: 'power3.out',
-          }
-        )
-        
-        gsap.fromTo(infoRef.current,
-          {
-            opacity: 0,
-            x: 50,
-          },
-          {
-            opacity: 1,
-            x: 0,
-            duration: 0.8,
-            delay: 0.2,
-            ease: 'power3.out',
-          }
-        )
-      } catch (err) {
-        setError('Failed to load product')
-        console.error('Failed to fetch product:', err)
-      } finally {
-        setLoading(false)
-      }
+    if (product && !isLoading) {
+      // Animate on load
+      gsap.fromTo(imageRef.current,
+        {
+          opacity: 0,
+          x: -50,
+        },
+        {
+          opacity: 1,
+          x: 0,
+          duration: 0.8,
+          ease: 'power3.out',
+        }
+      )
+      
+      gsap.fromTo(infoRef.current,
+        {
+          opacity: 0,
+          x: 50,
+        },
+        {
+          opacity: 1,
+          x: 0,
+          duration: 0.8,
+          delay: 0.2,
+          ease: 'power3.out',
+        }
+      )
+      
+      setLoading(false);
     }
-
-    fetchProduct()
-  }, [resolvedId])
+  }, [product, isLoading]);
 
   const handleAddToCart = async () => {
     if (!isAuthenticated) {
@@ -100,12 +92,11 @@ export default function ProductDetailPage({ params }: PageProps) {
       return
     }
 
+    if (!product) return;
+
     try {
       setAddingToCart(true)
-      await post('/cart/add', {
-        productId: product!.id,
-        quantity: quantity,
-      })
+      await addToCart({ productId: product.id, quantity }).unwrap();
       // Show success message (toast would be better here)
       alert(`Added ${quantity} item(s) to cart!`)
       setQuantity(1) // Reset quantity
@@ -117,7 +108,7 @@ export default function ProductDetailPage({ params }: PageProps) {
     }
   }
 
-  if (loading) {
+  if (isLoading || loading) {
     return (
       <main className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-gray-100">
         <Header />
@@ -136,14 +127,14 @@ export default function ProductDetailPage({ params }: PageProps) {
     )
   }
 
-  if (error || !product) {
+  if (productError || !product) {
     return (
       <main className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-gray-100">
         <Header />
         <div className="max-w-7xl mx-auto px-4 py-12">
           <div className="text-center">
             <h1 className="text-2xl font-bold text-gray-900 mb-4">
-              {error || 'Product not found'}
+              {productError ? 'Failed to load product' : 'Product not found'}
             </h1>
             <Link href="/">
               <Button className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700">

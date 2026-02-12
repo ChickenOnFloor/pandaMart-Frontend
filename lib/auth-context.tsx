@@ -7,9 +7,7 @@ import {
   useEffect,
   type ReactNode,
 } from 'react'
-
-const API_BASE_URL: string =
-  process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000'
+import { useLoginMutation, useRegisterMutation, useLogoutMutation, useGetMeQuery } from '@/lib/api/api';
 
 export type UserRole = 'user' | 'seller' | 'admin'
 
@@ -35,73 +33,53 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | null>(null)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<AuthUser | null>(null)
-  const [loading, setLoading] = useState<boolean>(true)
-  const [error, setError] = useState<string | null>(null)
-  const [initialized, setInitialized] = useState<boolean>(false)
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+  const [initialized, setInitialized] = useState<boolean>(false);
+
+  // RTK Query mutations and queries
+  const [loginMutation] = useLoginMutation();
+  const [registerMutation] = useRegisterMutation();
+  const [logoutMutation] = useLogoutMutation();
+  const { data: meData, isLoading: meLoading, isError: meError, refetch } = useGetMeQuery(undefined, {
+    refetchOnMountOrArgChange: true,
+    skip: false,
+  });
 
   // 🟢 Run after hydration (prevents false 401 on Vercel)
   useEffect(() => {
-    const timer = setTimeout(() => {
-      void checkAuthStatus()
-    }, 100)
-
-    return () => clearTimeout(timer)
-  }, [])
+    if (!meLoading) {
+      if (meData) {
+        setUser(meData);
+      } else {
+        setUser(null);
+      }
+      setInitialized(true);
+      setLoading(false);
+    }
+  }, [meData, meLoading]);
 
   const refreshAuthStatus = async (): Promise<void> => {
-    await checkAuthStatus()
-  }
-
-  const checkAuthStatus = async (): Promise<void> => {
-    try {
-      const response: Response = await fetch(
-        `${API_BASE_URL}/api/auth/me`,
-        { credentials: 'include' }
-      )
-
-      if (response.ok) {
-        const userData: AuthUser = await response.json()
-        setUser(userData)
-      } else if (response.status === 401) {
-        setUser(null)
-      }
-    } catch {
-      console.info('Auth check skipped (network/cold start)')
-    } finally {
-      setInitialized(true)
-      setLoading(false)
-    }
-  }
+    await refetch();
+  };
 
   const login = async (email: string, password: string): Promise<void> => {
     try {
-      setError(null)
-      setLoading(true)
+      setError(null);
+      setLoading(true);
 
-      const response: Response = await fetch(
-        `${API_BASE_URL}/api/auth/login`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({ email, password }),
-        }
-      )
-
-      if (!response.ok) {
-        throw new Error('Invalid credentials')
-      }
-
-      const userData: AuthUser = await response.json()
-      setUser(userData)
+      const result = await loginMutation({ email, password }).unwrap();
+      
+      // Update user state with the returned user data
+      setUser(result);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Login failed')
-      throw err
+      setError(err instanceof Error ? err.message : 'Login failed');
+      throw err;
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const register = async (
     name: string,
@@ -109,43 +87,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     password: string
   ): Promise<void> => {
     try {
-      setError(null)
-      setLoading(true)
+      setError(null);
+      setLoading(true);
 
-      const response: Response = await fetch(
-        `${API_BASE_URL}/api/auth/register`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({ name, email, password }),
-        }
-      )
-
-      if (!response.ok) {
-        throw new Error('Registration failed')
-      }
-
-      const userData: AuthUser = await response.json()
-      setUser(userData)
+      const result = await registerMutation({ name, email, password }).unwrap();
+      
+      // Update user state with the returned user data
+      setUser(result);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Registration failed')
-      throw err
+      setError(err instanceof Error ? err.message : 'Registration failed');
+      throw err;
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const logout = async (): Promise<void> => {
     try {
-      await fetch(`${API_BASE_URL}/api/auth/logout`, {
-        method: 'POST',
-        credentials: 'include',
-      })
+      await logoutMutation({}).unwrap();
+    } catch (err) {
+      console.error('Logout error:', err);
     } finally {
-      setUser(null)
+      setUser(null);
     }
-  }
+  };
 
   return (
     <AuthContext.Provider
@@ -163,13 +128,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     >
       {children}
     </AuthContext.Provider>
-  )
+  );
 }
 
 export function useAuth(): AuthContextType {
-  const context = useContext(AuthContext)
+  const context = useContext(AuthContext);
   if (!context) {
-    throw new Error('useAuth must be used within AuthProvider')
+    throw new Error('useAuth must be used within AuthProvider');
   }
-  return context
+  return context;
 }

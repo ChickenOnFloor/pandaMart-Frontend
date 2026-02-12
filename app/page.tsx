@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { MobileFilters } from '@/components/mobile-filters'
-import { get } from '@/lib/api'
+import { useGetProductsQuery } from '@/lib/api/api'
 import gsap from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 
@@ -33,8 +33,6 @@ const PRICE_RANGES = [
 ]
 
 export default function Home() {
-  const [products, setProducts] = useState<Product[]>([])
-  const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [category, setCategory] = useState<string>('all')
   const [priceRange, setPriceRange] = useState<string>('all')
@@ -43,6 +41,49 @@ export default function Home() {
   const titleRef = useRef(null)
   const filtersRef = useRef(null)
   const productsGridRef = useRef<HTMLDivElement>(null)
+
+  // Use RTK Query hook for fetching products
+  const { data: allProducts = [], isLoading, refetch } = useGetProductsQuery({
+    search,
+    category: category !== 'all' ? category : undefined,
+    inStock: inStockOnly ? 'true' : undefined,
+    ...(priceRange !== 'all' && {
+      minPrice: PRICE_RANGES.find(r => r.label === priceRange)?.min?.toString(),
+      maxPrice: PRICE_RANGES.find(r => r.label === priceRange)?.max === Infinity 
+        ? '999999' 
+        : PRICE_RANGES.find(r => r.label === priceRange)?.max?.toString(),
+    })
+  });
+
+  // Apply filters client-side to fetched data
+  const filteredProducts = allProducts.filter((product: Product) => {
+    // Apply search filter
+    if (search && !product.name.toLowerCase().includes(search.toLowerCase())) {
+      return false;
+    }
+    
+    // Apply category filter
+    if (category !== 'all' && !product.category.toLowerCase().includes(category.toLowerCase())) {
+      return false;
+    }
+    
+    // Apply in stock filter
+    if (inStockOnly && product.stock <= 0) {
+      return false;
+    }
+    
+    // Apply price range filter
+    if (priceRange !== 'all') {
+      const range = PRICE_RANGES.find(r => r.label === priceRange);
+      if (range) {
+        if (product.price < range.min || (range.max !== Infinity && product.price > range.max)) {
+          return false;
+        }
+      }
+    }
+    
+    return true;
+  });
 
   useEffect(() => {
     // Animate title on mount
@@ -76,12 +117,8 @@ export default function Home() {
   }, [])
 
   useEffect(() => {
-    fetchProducts()
-  }, [search, category, priceRange, inStockOnly])
-
-  useEffect(() => {
     // Animate products when they load
-    if (!loading && productsGridRef.current) {
+    if (!isLoading && productsGridRef.current) {
       const cards = productsGridRef.current.querySelectorAll('.product-card')
       gsap.fromTo(cards,
         {
@@ -99,33 +136,7 @@ export default function Home() {
         }
       )
     }
-  }, [loading, products])
-
-  const fetchProducts = async () => {
-    try {
-      setLoading(true)
-      const params = new URLSearchParams()
-
-      if (search) params.append('search', search)
-      if (category !== 'all') params.append('category', category)
-      if (inStockOnly) params.append('inStock', 'true')
-      if (priceRange !== 'all') {
-        const range = PRICE_RANGES.find(r => r.label === priceRange)
-        if (range) {
-          params.append('minPrice', range.min.toString())
-          params.append('maxPrice', range.max === Infinity ? '999999' : range.max.toString())
-        }
-      }
-
-      const products = await get<Product[]>(`/products?${params.toString()}`)
-      setProducts(products)
-    } catch (err) {
-      console.error('Failed to fetch products:', err)
-      setProducts([])
-    } finally {
-      setLoading(false)
-    }
-  }
+  }, [isLoading, allProducts])
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-gray-100">
@@ -229,7 +240,7 @@ export default function Home() {
           </h1>
 
           {/* Products Grid */}
-          {loading ? (
+          {isLoading ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {Array.from({ length: 9 }).map((_, i) => (
                 <Card key={i} className="animate-pulse">
@@ -243,13 +254,13 @@ export default function Home() {
                 </Card>
               ))}
             </div>
-          ) : products.length === 0 ? (
+          ) : filteredProducts.length === 0 ? (
             <div className="text-center py-12">
               <p className="text-gray-500 text-lg">No products found</p>
             </div>
           ) : (
             <div ref={productsGridRef} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {products.map((product, index) => (
+              {filteredProducts.map((product: Product, index: number) => (
                 <Link key={product.id} href={`/products/${product.id}`}>
                   <Card 
                     className="product-card h-full hover:shadow-2xl transition-all duration-500 cursor-pointer group overflow-hidden border-2 border-transparent hover:border-blue-500 bg-white"

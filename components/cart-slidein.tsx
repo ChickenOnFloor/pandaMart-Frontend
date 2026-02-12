@@ -1,10 +1,11 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { Button } from '@/components/ui/button'
-import { get, post, del } from '@/lib/api'
+// Removed the old API imports
 import { X, ShoppingCart, Minus, Plus, Trash2 } from 'lucide-react'
 import gsap from 'gsap'
 import { useRouter } from 'next/navigation'
+import { useGetCartQuery, useAddToCartMutation, useRemoveFromCartMutation } from '@/lib/api/api'
 
 interface CartItem {
   productId: string
@@ -25,17 +26,22 @@ interface CartSlideInProps {
 }
 
 export function CartSlideIn({ isOpen, onClose }: CartSlideInProps) {
-  const [cart, setCart] = useState<CartData | null>(null)
-  const [loading, setLoading] = useState(true)
   const [updating, setUpdating] = useState<string | null>(null)
   const router = useRouter()
+  
+  // Use RTK Query hooks
+  const { data: cart, isLoading: loading, refetch } = useGetCartQuery(undefined, {
+    skip: !isOpen, // Only fetch when the cart is open
+  });
+  const [addToCart] = useAddToCartMutation();
+  const [removeFromCart] = useRemoveFromCartMutation();
 
   const panelRef = useRef<HTMLDivElement>(null)
   const overlayRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (isOpen) {
-      fetchCart()
+      refetch(); // Refetch when opening
       // Animate in
       gsap.to(overlayRef.current, {
         opacity: 1,
@@ -63,43 +69,32 @@ export function CartSlideIn({ isOpen, onClose }: CartSlideInProps) {
         ease: 'power3.in',
       })
     }
-  }, [isOpen])
+  }, [isOpen, refetch])
 
-  const fetchCart = async () => {
-    try {
-      setLoading(true)
-      const data = await get<CartData>('/cart')
-      setCart(data)
-    } catch (err) {
-      console.error('Failed to fetch cart:', err)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const updateQuantity = async (productId: string, quantity: number) => {
-    if (quantity < 1) return
+  const updateQuantity = async (productId: string, newQuantity: number) => {
+    if (newQuantity < 1) return
 
     try {
-      setUpdating(productId)
-      await post('/cart/add', { productId, quantity })
-      await fetchCart()
+      setUpdating(productId);
+      // Add to cart with new quantity
+      await addToCart({ productId, quantity: newQuantity }).unwrap();
+      await refetch(); // Refresh the cart data
     } catch (err) {
-      console.error('Failed to update cart:', err)
+      console.error('Failed to update cart:', err);
     } finally {
-      setUpdating(null)
+      setUpdating(null);
     }
   }
 
   const removeItem = async (productId: string) => {
     try {
-      setUpdating(productId)
-      await del(`/cart/remove/${productId}`)
-      await fetchCart()
+      setUpdating(productId);
+      await removeFromCart(productId).unwrap();
+      await refetch(); // Refresh the cart data
     } catch (err) {
-      console.error('Failed to remove item:', err)
+      console.error('Failed to remove item:', err);
     } finally {
-      setUpdating(null)
+      setUpdating(null);
     }
   }
 
@@ -154,7 +149,7 @@ export function CartSlideIn({ isOpen, onClose }: CartSlideInProps) {
             </div>
           ) : (
             <div className="space-y-4">
-              {cart.items.map((item) => (
+              {cart.items.map((item: CartItem) => (
                 <div
                   key={item.productId}
                   className="bg-gray-50 rounded-lg p-4 border border-gray-200 hover:shadow-md transition-shadow"
