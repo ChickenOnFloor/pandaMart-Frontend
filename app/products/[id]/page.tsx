@@ -229,7 +229,7 @@ export default function ProductDetailPage({ params }: PageProps) {
                   )}
                 </div>
                 {product.seller && (
-                  <Link href={`/seller/${product.sellerId}/products`}>
+                  <Link href={`/shops/${product.sellerId}`}>
                     <Button className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 whitespace-nowrap px-6 py-3 text-lg">
                       See All Products
                     </Button>
